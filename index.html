@@ -18,6 +18,9 @@
     <!-- Phosphor Icons (取代 Lucide Icons) -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
+    <!-- 預先載入 Tesseract OCR 模組，避免被平台安全政策阻擋 -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
     <style>
         body { 
             font-family: system-ui, -apple-system, sans-serif; 
@@ -186,7 +189,7 @@
             if (!dialog.isOpen) return null;
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-                    <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl overflow-hidden">
+                    <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${dialog.type === 'confirm' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                                 {dialog.type === 'confirm' ? <AlertTriangle size={24} /> : <AlertCircle size={24} />}
@@ -229,7 +232,7 @@
                 <div className="border-t border-slate-700 my-2"></div>
                 <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
             </nav>
-            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.1 HTML Edition</div>
+            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.2 OCR 優化版</div>
             </div>
         );
 
@@ -288,18 +291,16 @@
 
                 setIsRecognizing(true);
                 try {
+                    // 關鍵修正：確保模組已載入
                     if (!window.Tesseract) {
-                        await new Promise((resolve, reject) => {
-                            const script = document.createElement('script');
-                            script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-                            script.onload = resolve;
-                            script.onerror = reject;
-                            document.head.appendChild(script);
-                        });
+                        throw new Error("OCR 模組載入失敗或被瀏覽器阻擋");
                     }
 
-                    const imageUrl = URL.createObjectURL(file);
-                    const result = await window.Tesseract.recognize(imageUrl, 'eng');
+                    // 關鍵修正：在丟給 Tesseract 前，先將照片壓縮！
+                    // 手機直接拍照常超過 5MB，會導致 WebAssembly 記憶體崩潰
+                    const compressedImageBase64 = await compressImage(file);
+
+                    const result = await window.Tesseract.recognize(compressedImageBase64, 'eng');
                     const text = result.data.text;
                     const cleanText = text.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
                     const match = cleanText.match(/[A-Z0-9]{2,4}-?[A-Z0-9]{2,4}/);
@@ -314,10 +315,9 @@
                         updateDraft('plate', plate);
                         showAlert(`車牌辨識成功: ${plate}`);
                     } else { showAlert("未能成功辨識車牌，請確認照片清晰度或手動輸入。"); }
-                    URL.revokeObjectURL(imageUrl);
                 } catch (error) {
                     console.error(error);
-                    showAlert("辨識服務載入或執行失敗，請手動輸入。");
+                    showAlert("辨識服務執行失敗：" + (error.message || "請手動輸入。"));
                 } finally {
                     setIsRecognizing(false);
                     if(plateCameraRef.current) plateCameraRef.current.value = '';
