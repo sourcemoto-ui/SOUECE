@@ -676,9 +676,25 @@
             const handleConfirmAction = async (finalText) => {
                 if (modalData.type === 'sms') { copyToClipboard(finalText, () => showAlert(`已複製內容！`), () => showAlert(`複製失敗，請手動選取複製`)); setModalOpen(false); } 
                 else {
+                    // 防呆：檢查是否有填寫 Email
+                    if (!modalData.customer.email || modalData.customer.email.trim() === '') {
+                        showAlert(`發送失敗：客戶 ${modalData.customer.name || '此客戶'} 沒有填寫 Email 資料！`);
+                        setModalOpen(false);
+                        return;
+                    }
+
                     setSendingId(modalData.customer.id);
-                    try { await fetch(gasUrl, { method: 'POST', body: JSON.stringify({ action: 'send_maintenance_reminder', email: modalData.customer.email, customText: finalText, shopInfo }) }); showAlert("發送成功"); } 
-                    catch (e) { showAlert("連線失敗"); } finally { setSendingId(null); setModalOpen(false); }
+                    try { 
+                        const response = await fetch(gasUrl, { method: 'POST', body: JSON.stringify({ action: 'send_maintenance_reminder', email: modalData.customer.email, customText: finalText, shopInfo }) }); 
+                        const result = await response.json();
+                        
+                        if (result.status === 'success') {
+                            showAlert("Email 發送成功！"); 
+                        } else {
+                            showAlert(`發送失敗：${result.message || '後端未正確回應'}`);
+                        }
+                    } 
+                    catch (e) { showAlert("連線失敗，請檢查 Apps Script 設定或網路狀態。"); } finally { setSendingId(null); setModalOpen(false); }
                 }
             };
 
