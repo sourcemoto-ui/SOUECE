@@ -230,9 +230,9 @@
                 <button onClick={() => setView('workforce')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'workforce' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Briefcase size={20} /><span>人事與績效</span></button>
                 <button onClick={() => setView('cashier')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'cashier' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Wallet size={20} /><span>帳務與對帳</span></button>
                 <div className="border-t border-slate-700 my-2"></div>
-                <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
-            </nav>
-            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.3 Email Update</div>
+                    <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
+                </nav>
+                <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.4 分頁與中文化版</div>
             </div>
         );
 
@@ -377,15 +377,15 @@
                     <div className="md:col-span-4 space-y-1">
                         <label className="text-sm font-medium text-slate-600">車牌號碼</label>
                         <div className="flex gap-2">
-                            <input type="text" value={draftOrder.plate} onChange={(e) => updateDraft('plate', e.target.value.toUpperCase())} placeholder="ABC-123" className="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none uppercase font-bold text-xl bg-yellow-50 min-w-0" required />
+                            <input type="text" value={draftOrder.plate} onChange={(e) => updateDraft('plate', e.target.value.toUpperCase())} placeholder="例如：ABC-123" className="flex-1 p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none uppercase font-bold text-xl bg-yellow-50 min-w-0" required />
                             <button type="button" onClick={() => plateCameraRef.current.click()} disabled={isRecognizing} className={`w-14 shrink-0 flex items-center justify-center rounded-lg border border-blue-300 bg-blue-50 text-blue-600 transition-colors ${isRecognizing ? 'opacity-70 cursor-wait' : 'hover:bg-blue-100'}`} title="拍照辨識車牌">
                             {isRecognizing ? <RefreshCw className="animate-spin" size={20}/> : <Camera size={20}/>}
                             </button>
                             <input type="file" accept="image/*" capture="environment" className="hidden" ref={plateCameraRef} onChange={handlePlatePhoto} />
                         </div>
                     </div>
-                    <div className="md:col-span-4 space-y-1"><label className="text-sm font-medium text-slate-600">客戶姓名</label><input type="text" value={draftOrder.name} onChange={(e) => updateDraft('name', e.target.value)} placeholder="王小明" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                    <div className="md:col-span-4 space-y-1"><label className="text-sm font-medium text-slate-600">聯絡電話</label><input type="tel" value={draftOrder.phone} onChange={(e) => updateDraft('phone', e.target.value)} placeholder="0912..." className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                    <div className="md:col-span-4 space-y-1"><label className="text-sm font-medium text-slate-600">客戶姓名</label><input type="text" value={draftOrder.name} onChange={(e) => updateDraft('name', e.target.value)} placeholder="例如：王小明" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                    <div className="md:col-span-4 space-y-1"><label className="text-sm font-medium text-slate-600">聯絡電話</label><input type="tel" value={draftOrder.phone} onChange={(e) => updateDraft('phone', e.target.value)} placeholder="例如：0912..." className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
 
                     {lastServiceHint && (
                         <div className="md:col-span-12 bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2 text-sm text-blue-800">
@@ -394,8 +394,8 @@
                         </div>
                     )}
 
-                    <div className="md:col-span-5 space-y-1"><label className="text-sm font-medium text-slate-600 flex items-center gap-1"><Mail size={14}/> Email</label><input type="email" value={draftOrder.email} onChange={(e) => updateDraft('email', e.target.value)} placeholder="customer@example.com" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
-                    <div className="md:col-span-3 space-y-1"><label className="text-sm font-medium text-slate-600 flex items-center gap-1"><Calendar size={14}/> 出廠年份</label><input type="text" value={draftOrder.year} onChange={(e) => updateDraft('year', e.target.value)} placeholder="2020" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                    <div className="md:col-span-5 space-y-1"><label className="text-sm font-medium text-slate-600 flex items-center gap-1"><Mail size={14}/> 電子郵件</label><input type="email" value={draftOrder.email} onChange={(e) => updateDraft('email', e.target.value)} placeholder="例如：customer@example.com" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
+                    <div className="md:col-span-3 space-y-1"><label className="text-sm font-medium text-slate-600 flex items-center gap-1"><Calendar size={14}/> 出廠年份</label><input type="text" value={draftOrder.year} onChange={(e) => updateDraft('year', e.target.value)} placeholder="例如：2020" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
                     <div className="md:col-span-4 space-y-1"><label className="text-sm font-medium text-slate-600 flex items-center gap-1"><Bike size={14}/> 車種</label><input type="text" value={draftOrder.bikeModel} onChange={(e) => updateDraft('bikeModel', e.target.value)} placeholder="例如：勁戰六代" className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" /></div>
                     </div>
 
@@ -512,7 +512,7 @@
 
         const Dashboard = ({ records, deleteRecord, setSelectedRecord, setShowReceiptModal }) => {
             const [searchTerm, setSearchTerm] = useState('');
-            const [filterMonth, setFilterMonth] = useState('all'); 
+            const [filterMonth, setFilterMonth] = useState(''); 
 
             const availableMonths = useMemo(() => {
                 const months = new Set();
@@ -522,6 +522,13 @@
                 });
                 return Array.from(months).sort().reverse();
             }, [records]);
+
+            // 自動選擇最新月份
+            useEffect(() => {
+                if (!filterMonth) {
+                    setFilterMonth(availableMonths.length > 0 ? availableMonths[0] : 'all');
+                }
+            }, [availableMonths, filterMonth]);
 
             const { groupedRecords, todayRevenue, monthRevenue } = useMemo(() => {
                 const filtered = records.filter(r => {
@@ -560,19 +567,23 @@
                     <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-lg"><p className="text-blue-100 text-sm font-medium mb-1">今日營收</p><div className="text-3xl font-black">${todayRevenue.toLocaleString()}</div></div>
                     <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm"><p className="text-slate-500 text-sm font-medium mb-1">本月營收</p><div className="text-3xl font-black text-slate-800">${monthRevenue.toLocaleString()}</div></div>
                 </div>
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-                    <h2 className="text-2xl font-bold text-slate-800">維修紀錄看板</h2>
-                    <div className="flex flex-wrap gap-3 w-full xl:w-auto">
-                        <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="p-3 border border-slate-300 rounded-lg text-sm bg-white outline-none focus:border-blue-500 font-medium shadow-sm">
-                            <option value="all">全部紀錄</option>
-                            {availableMonths.map(m => <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>)}
-                        </select>
-                        <div className="relative flex-1 min-w-[200px] md:flex-none">
+                
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h2 className="text-2xl font-bold text-slate-800">維修紀錄看板</h2>
+                        <div className="relative w-full sm:w-auto min-w-[250px]">
                             <Search className="absolute left-3 top-3 text-slate-400" size={18} />
-                            <input type="text" placeholder="搜尋車牌或姓名..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-3 border border-slate-300 rounded-lg text-sm w-full outline-none focus:border-blue-500 shadow-sm" />
+                            <input type="text" placeholder="搜尋車牌或姓名..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm w-full outline-none focus:border-blue-500 shadow-sm" />
                         </div>
                     </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        <button onClick={() => setFilterMonth('all')} className={`whitespace-nowrap px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex-shrink-0 ${filterMonth === 'all' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}>全部紀錄</button>
+                        {availableMonths.map(m => (
+                            <button key={m} onClick={() => setFilterMonth(m)} className={`whitespace-nowrap px-5 py-2.5 rounded-lg font-bold text-sm transition-colors shadow-sm flex-shrink-0 ${filterMonth === m ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}>{m.replace('-', ' 年 ')} 月</button>
+                        ))}
+                    </div>
                 </div>
+
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm min-w-[800px]">
@@ -635,7 +646,7 @@
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9998] p-4">
                     <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className={`p-4 text-white flex justify-between items-center ${type === 'email' ? 'bg-green-600' : 'bg-blue-600'}`}>
-                            <h3 className="font-bold flex items-center gap-2">{type === 'email' ? <Mail size={20}/> : <MessageSquare size={20}/>} {type === 'email' ? '發送 Email 提醒' : '複製文字'}</h3>
+                            <h3 className="font-bold flex items-center gap-2">{type === 'email' ? <Mail size={20}/> : <MessageSquare size={20}/>} {type === 'email' ? '發送電子郵件提醒' : '複製文字'}</h3>
                             <button onClick={onClose}><X size={20}/></button>
                         </div>
                         <div className="p-4 flex-1 overflow-y-auto"><textarea className="w-full h-48 p-3 border border-slate-300 rounded-lg outline-none text-sm" value={text} onChange={(e) => setText(e.target.value)}></textarea></div>
@@ -701,7 +712,7 @@
                         <div className="flex bg-white/20 p-1.5 rounded-lg">
                             <button onClick={() => setTab('oil')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'oil' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>機油</button>
                             <button onClick={() => setTab('major')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'major' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>大保養</button>
-                            <button onClick={() => setTab('top5')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'top5' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>Top 5</button>
+                            <button onClick={() => setTab('top5')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'top5' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>前 5 名</button>
                         </div>
                     </div>
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -715,7 +726,7 @@
                                             <td className="p-4">
                                                 <div className="flex gap-2 justify-center">
                                                     <button onClick={() => handleActionClick(c, 'sms')} className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 px-4 py-2 rounded-lg text-xs font-bold transition-colors">LINE / 複製</button>
-                                                    <button onClick={() => handleActionClick(c, 'email')} disabled={sendingId === c.id} className="bg-green-50 text-green-700 border border-green-100 hover:bg-green-100 px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1">{sendingId === c.id && <RefreshCw size={12} className="animate-spin"/>} Email</button>
+                                                    <button onClick={() => handleActionClick(c, 'email')} disabled={sendingId === c.id} className="bg-green-50 text-green-700 border border-green-100 hover:bg-green-100 px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1">{sendingId === c.id && <RefreshCw size={12} className="animate-spin"/>} 電子郵件</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -937,7 +948,7 @@
                 <div className="max-w-2xl mx-auto space-y-6 text-sm">
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                         <h2 className="text-xl font-bold flex items-center gap-2"><CloudLightning size={20} className="text-blue-600"/> 雲端連線</h2>
-                        <input type="text" value={tempUrl} onChange={e => setUrl(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-xs font-mono bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Apps Script URL"/>
+                        <input type="text" value={tempUrl} onChange={e => setUrl(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-xs font-mono bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Google Apps Script 網址"/>
                         <button onClick={() => testConnection(tempUrl)} disabled={isLoading} className={`w-full p-3 rounded-lg font-bold text-white transition-colors flex items-center justify-center gap-2 ${isCloudEnabled ? 'bg-green-600 shadow-lg shadow-green-200' : 'bg-slate-800 hover:bg-slate-700'}`}>{isLoading ? <RefreshCw className="animate-spin" size={18}/> : null}{isCloudEnabled ? '連線成功 - 重新測試' : '測試並儲存連線'}</button>
                         {isCloudEnabled && <button onClick={saveSettingsToCloud} disabled={isSavingSettings} className="w-full p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-200">{isSavingSettings ? <RefreshCw className="animate-spin" size={18}/> : <UploadCloud size={18}/>}手動備份所有資料到雲端</button>}
                     </div>
@@ -1049,8 +1060,11 @@
             const [staffList, setStaffList] = useState(() => loadFromLocal('moto_staffList', ['MICHAEL', '小宇']));
             
             const [draftOrder, setDraftOrder] = useState(INITIAL_ORDER_STATE);
-            const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('moto_gasUrl') || DEFAULT_GAS_URL);
-            const [tempUrl, setTempUrl] = useState(() => localStorage.getItem('moto_gasUrl') || DEFAULT_GAS_URL);
+            
+            // 強制自動導入最新的雲端網址，直接忽略並覆蓋瀏覽器的舊暫存
+            const [gasUrl, setGasUrl] = useState(DEFAULT_GAS_URL);
+            const [tempUrl, setTempUrl] = useState(DEFAULT_GAS_URL);
+            
             const [isCloudEnabled, setIsCloudEnabled] = useState(false);
             const [isLoading, setIsLoading] = useState(false);
             const [isSavingSettings, setIsSavingSettings] = useState(false);
