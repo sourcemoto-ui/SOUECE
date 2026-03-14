@@ -31,6 +31,8 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-900 overflow-hidden">
@@ -189,7 +191,7 @@
             if (!dialog.isOpen) return null;
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
-                    <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl overflow-hidden">
+                    <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6 text-center">
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${dialog.type === 'confirm' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                                 {dialog.type === 'confirm' ? <AlertTriangle size={24} /> : <AlertCircle size={24} />}
@@ -230,9 +232,9 @@
                 <button onClick={() => setView('workforce')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'workforce' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Briefcase size={20} /><span>人事與績效</span></button>
                 <button onClick={() => setView('cashier')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'cashier' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Wallet size={20} /><span>帳務與對帳</span></button>
                 <div className="border-t border-slate-700 my-2"></div>
-                    <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
-                </nav>
-                <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.4 分頁與中文化版</div>
+                <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
+            </nav>
+            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.5 Email 修正版</div>
             </div>
         );
 
@@ -523,7 +525,6 @@
                 return Array.from(months).sort().reverse();
             }, [records]);
 
-            // 自動選擇最新月份
             useEffect(() => {
                 if (!filterMonth) {
                     setFilterMonth(availableMonths.length > 0 ? availableMonths[0] : 'all');
@@ -1060,11 +1061,8 @@
             const [staffList, setStaffList] = useState(() => loadFromLocal('moto_staffList', ['MICHAEL', '小宇']));
             
             const [draftOrder, setDraftOrder] = useState(INITIAL_ORDER_STATE);
-            
-            // 強制自動導入最新的雲端網址，直接忽略並覆蓋瀏覽器的舊暫存
             const [gasUrl, setGasUrl] = useState(DEFAULT_GAS_URL);
             const [tempUrl, setTempUrl] = useState(DEFAULT_GAS_URL);
-            
             const [isCloudEnabled, setIsCloudEnabled] = useState(false);
             const [isLoading, setIsLoading] = useState(false);
             const [isSavingSettings, setIsSavingSettings] = useState(false);
@@ -1120,8 +1118,35 @@
             const handleCreateOrder = async (orderData) => {
                 const ds = new Date().toLocaleDateString('zh-TW'); const ts = new Date().toISOString(); const sp = String(orderData.plate).toUpperCase();
                 let nc; let updatedCustomers = [...customers]; const ec = updatedCustomers.find(c => c.plate === sp);
-                if (ec) { nc = { ...ec, name: orderData.name || ec.name, lastVisit: ds, lastMileage: orderData.mileage }; updatedCustomers = updatedCustomers.map(c => c.id === ec.id ? nc : c); } 
-                else { nc = { id: Date.now().toString(), plate: sp, name: orderData.name, firstVisit: ds, lastVisit: ds, lastMileage: orderData.mileage }; updatedCustomers.push(nc); }
+                
+                // 🔧 修復 Email 遺失 Bug：確保所有輸入框的資料都有被包進客戶檔案中！
+                if (ec) { 
+                    nc = { 
+                        ...ec, 
+                        name: orderData.name || ec.name, 
+                        phone: orderData.phone || ec.phone,
+                        email: orderData.email || ec.email,
+                        year: orderData.year || ec.year,
+                        bikeModel: orderData.bikeModel || ec.bikeModel,
+                        lastVisit: ds, 
+                        lastMileage: orderData.mileage 
+                    }; 
+                    updatedCustomers = updatedCustomers.map(c => c.id === ec.id ? nc : c); 
+                } else { 
+                    nc = { 
+                        id: Date.now().toString(), 
+                        plate: sp, 
+                        name: orderData.name, 
+                        phone: orderData.phone,
+                        email: orderData.email,
+                        year: orderData.year,
+                        bikeModel: orderData.bikeModel,
+                        firstVisit: ds, 
+                        lastVisit: ds, 
+                        lastMileage: orderData.mileage 
+                    }; 
+                    updatedCustomers.push(nc); 
+                }
                 setCustomers(updatedCustomers);
 
                 const updatedServices = quickServices.map(s => { const used = orderData.items.find(i => i.name === s.name); if (used) { return { ...s, stock: Math.max(0, (s.stock || 0) - (Number(used.qty) || 1)) }; } return s; });
