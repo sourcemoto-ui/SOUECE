@@ -234,7 +234,7 @@
                 <div className="border-t border-slate-700 my-2"></div>
                 <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
             </nav>
-            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.6 手工收入更新版</div>
+            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.8 修復對帳紀錄版</div>
             </div>
         );
 
@@ -312,7 +312,7 @@
                         }
                         updateDraft('plate', plate);
                         showAlert(`車牌辨識成功: ${plate}`);
-                    } else { showAlert("未能成功辨識車牌，請確認照片清晰度或手手動輸入。"); }
+                    } else { showAlert("未能成功辨識車牌，請確認照片清晰度或手動輸入。"); }
                 } catch (error) {
                     console.error(error);
                     showAlert("辨識服務執行失敗：" + (error.message || "請手動輸入。"));
@@ -876,7 +876,7 @@
             );
         };
 
-        const CashierView = ({ records, cashRecords, setCashRecords, showAlert, showConfirm }) => {
+        const CashierView = ({ records, cashRecords, setCashRecords, showAlert, showConfirm, saveSettingsToCloud, isCloudEnabled, isSavingSettings }) => {
             const todayStr = getLocalDateString(new Date()); 
             const [targetDate, setTargetDate] = useState(todayStr);
             
@@ -938,7 +938,6 @@
             const totalIncomes = incomes.reduce((sum, i) => sum + i.amount, 0);
             const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0); 
             
-            // 應有現金計算： 找零 + 工單現金 + 手工收入 - 手工支出
             const expectedCash = Number(startingCash || 0) + cashFromOrders + totalIncomes - totalExpenses;
             
             const calculatedActualCash = showCalculator ? Object.entries(denoms).reduce((sum, [val, count]) => sum + (Number(val) * Number(count || 0)), 0) : Number(manualActualCash || 0);
@@ -946,15 +945,53 @@
 
             const handleSave = (closeAccount) => {
                 if (!showCalculator && manualActualCash === '') return showAlert('請輸入實際清點現金，或使用幣值盤點器');
-                const saveProcess = () => {
+                const saveProcess = async () => {
                     const newRecord = { id: targetDate, date: targetDate, startingCash: Number(startingCash || 0), incomes, expenses, cashFromOrders, expected: expectedCash, actual: calculatedActualCash, denoms: showCalculator ? denoms : null, diff, note, transfer: transferTotal, isClosed: closeAccount, timestamp: new Date().toISOString() };
-                    setCashRecords([newRecord, ...cashRecords.filter(c => c.date !== targetDate)].sort((a,b) => new Date(b.date) - new Date(a.date)));
-                    showAlert(closeAccount ? `【${targetDate}】 帳務已確認關帳，鎖定修改！` : `【${targetDate}】 對帳草稿已儲存`);
+                    const filtered = cashRecords.filter(c => c.date !== targetDate);
+                    const updated = [newRecord, ...filtered].sort((a,b) => new Date(b.date) - new Date(a.date));
+                    setCashRecords(updated);
+                    
+                    if (closeAccount) {
+                        if (isCloudEnabled && saveSettingsToCloud) {
+                            try {
+                                await saveSettingsToCloud(updated, true);
+                                showAlert(`【${targetDate}】 帳務已確認關帳，鎖定修改！\n(已自動同步備份至雲端試算表)`);
+                            } catch (err) {
+                                showAlert(`【${targetDate}】 帳務已確認關帳，鎖定修改！\n(⚠️雲端同步失敗，請稍後至設定頁手動備份)`);
+                            }
+                        } else {
+                            showAlert(`【${targetDate}】 帳務已確認關帳，鎖定修改！`);
+                        }
+                    } else {
+                        showAlert(`【${targetDate}】 對帳草稿已儲存`);
+                    }
                 };
                 if (closeAccount && diff !== 0) showConfirm(`目前帳務短溢為 ${diff > 0 ? '+'+diff : diff}，確定要以目前狀態強行關帳嗎？`, saveProcess); else saveProcess();
             };
 
             const handleUnlock = () => { showConfirm('解鎖後將允許編輯此日期的帳務與工單，確定解鎖？', () => { setIsClosed(false); setCashRecords(cashRecords.map(c => c.date === targetDate ? { ...c, isClosed: false } : c)); }); };
+
+            const handleDeleteRecord = (dateToDelete) => {
+                showConfirm(`確定要刪除 ${dateToDelete} 的對帳紀錄嗎？`, async () => {
+                    const updated = cashRecords.filter(c => c.date !== dateToDelete);
+                    setCashRecords(updated);
+                    
+                    if (isCloudEnabled && saveSettingsToCloud) {
+                        try {
+                            await saveSettingsToCloud(updated, true);
+                            showAlert(`【${dateToDelete}】 對帳紀錄已刪除，並同步至雲端。`);
+                        } catch (err) {
+                            showAlert(`【${dateToDelete}】 對帳紀錄已刪除！\n(⚠️雲端同步失敗，請稍後至設定頁手動備份)`);
+                        }
+                    } else {
+                        showAlert(`【${dateToDelete}】 對帳紀錄已刪除。`);
+                    }
+                    
+                    if (targetDate === dateToDelete) {
+                        setTargetDate(getLocalDateString(new Date()));
+                    }
+                });
+            };
 
             return (
                 <div className="max-w-5xl mx-auto space-y-6 pb-20">
@@ -962,6 +999,7 @@
                         <div><h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2"><Wallet className="text-blue-600"/> 每日帳務與對帳</h2><p className="text-sm text-slate-500 mt-1">管理每日準備金、手工收支，並與系統工單進行現金盤點核對。</p></div>
                         <div className="flex items-center gap-3 w-full md:w-auto">{isClosed && <div className="bg-red-100 text-red-600 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 text-sm"><Lock size={16}/> 已關帳</div>}<input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} className="flex-1 md:flex-none p-3 border-2 border-slate-300 rounded-lg text-slate-700 font-bold outline-none focus:border-blue-500" /></div>
                     </div>
+                    
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
                         {isClosed && (<div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[1px] z-10 flex items-center justify-center rounded-xl border-2 border-slate-200"><div className="bg-white p-6 rounded-2xl shadow-2xl text-center max-w-sm m-4"><div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4"><Lock size={32}/></div><h3 className="text-xl font-bold text-slate-800 mb-2">此日期已關帳鎖定</h3><p className="text-slate-500 text-sm mb-6">為保護帳務資料完整性，關帳後無法直接修改對帳單與工單。</p><button onClick={handleUnlock} className="bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-lg flex items-center justify-center gap-2 w-full transition-colors shadow-lg"><Unlock size={18}/> 解除鎖定</button></div></div>)}
                         
@@ -973,7 +1011,6 @@
                             
                             <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200"><label className="block text-xs font-bold text-slate-500 mb-1">② 今日工單現金收入 (+)</label><div className="text-3xl font-black text-blue-600 mt-1">${cashFromOrders.toLocaleString()}</div><div className="text-xs text-slate-400 mt-1.5 font-medium">不含匯款/其他收入: ${transferTotal.toLocaleString()}</div></div>
                             
-                            {/* 新增：手工現金收入區塊 */}
                             <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex-1">
                                 <label className="block text-xs font-bold text-slate-500 mb-3">③ 其他手工現金收入 (+)</label>
                                 <div className="space-y-2 mb-4">
@@ -1015,20 +1052,67 @@
                                     <button onClick={addExpense} className="bg-slate-800 text-white p-2.5 rounded-lg hover:bg-slate-700 transition-colors shadow-sm"><Plus size={20}/></button>
                                 </div>
                             </div>
+                            
                             <div className="bg-slate-800 p-5 rounded-xl shadow-lg text-white mt-2"><div className="text-sm text-slate-300 mb-1 font-medium">系統應有現金總額 (=)</div><div className="text-4xl font-black">${expectedCash.toLocaleString()}</div></div>
                         </div>
 
-                        {/* 右側欄位：實際盤點 */}
+                        {/* 右側欄位：實際現金盤點 */}
                         <div className="bg-white p-4 md:p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
                             <div className="flex flex-wrap justify-between items-center mb-2 gap-2"><h3 className="text-lg font-bold text-slate-700 flex items-center gap-2"><CheckSquare size={18}/> 實際現金盤點</h3><div className="flex bg-slate-100 p-1.5 rounded-lg"><button onClick={() => setShowCalculator(false)} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${!showCalculator ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:bg-slate-200'}`}>手動輸入</button><button onClick={() => setShowCalculator(true)} className={`px-4 py-1.5 text-xs font-bold rounded-md flex items-center gap-1 transition-colors ${showCalculator ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:bg-slate-200'}`}><Calculator size={12}/> 幣值盤點器</button></div></div>
                             {showCalculator ? (<div className="grid grid-cols-2 gap-3 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">{[1000, 500, 100, 50, 10, 5, 1].map(val => (<div key={val} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 transition-all"><div className="w-12 text-right font-bold text-slate-500">${val}</div><span className="text-xs text-slate-400">x</span><input type="number" min="0" value={denoms[val]} onChange={(e) => setDenoms({...denoms, [val]: e.target.value})} className="flex-1 w-full p-1.5 text-center font-bold text-slate-800 outline-none bg-transparent" placeholder="0" /></div>))}</div>) : (<div className="mb-4 bg-slate-50 p-6 rounded-xl border border-slate-200 flex flex-col items-center justify-center"><label className="block text-sm font-bold text-slate-500 mb-4">請直接輸入盤點總金額</label><input type="number" value={manualActualCash} onChange={(e) => setManualActualCash(e.target.value)} placeholder="$ 0" className="w-full max-w-xs p-4 border-2 border-slate-300 rounded-xl text-4xl font-black text-slate-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none text-center tracking-wider bg-white shadow-inner transition-all" /></div>)}
                             <div className="flex justify-between items-center py-4 border-t border-b border-dashed border-slate-300"><span className="text-slate-500 font-bold">實際盤點總計</span><span className="text-3xl font-black text-slate-800">${calculatedActualCash.toLocaleString()}</span></div>
                             <div className={`p-5 rounded-xl font-bold flex justify-between items-center text-xl shadow-sm border ${diff === 0 ? 'bg-green-50 text-green-700 border-green-200' : diff > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-red-50 text-red-700 border-red-200'}`}><span>差異 (短溢)</span><span className="text-2xl font-black">{diff > 0 ? '+' : ''}{diff.toLocaleString()}</span></div>
                             <div className="mt-auto pt-4"><label className="block text-xs font-bold text-slate-500 mb-2">對帳備註</label><input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="如：老闆抽走1000、客人少給10元..." className="w-full p-3.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50" /></div>
-                            <div className="flex gap-3 mt-6"><button onClick={() => handleSave(false)} className="flex-1 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold py-3.5 rounded-xl transition-colors">儲存草稿</button><button onClick={() => handleSave(true)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-200 active:scale-95"><Lock size={20}/> 確認關帳</button></div>
+                            
+                            <div className="flex gap-3 mt-6">
+                                <button onClick={() => handleSave(false)} disabled={isSavingSettings} className="flex-1 bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold py-3.5 rounded-xl transition-colors disabled:opacity-50">儲存草稿</button>
+                                <button onClick={() => handleSave(true)} disabled={isSavingSettings} className={`flex-1 ${isSavingSettings ? 'bg-blue-400 cursor-wait' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-blue-200 active:scale-95`}>
+                                    {isSavingSettings ? <RefreshCw className="animate-spin" size={20}/> : <Lock size={20}/>} 
+                                    {isSavingSettings ? '同步處理中...' : '確認關帳'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    {cashRecords.length > 0 && (<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div className="bg-slate-50 p-4 border-b border-slate-200"><h3 className="font-bold text-slate-700">歷史對帳紀錄</h3></div><div className="overflow-x-auto"><table className="w-full text-left text-sm whitespace-nowrap min-w-[700px]"><thead><tr className="border-b border-slate-200 text-slate-500"><th className="p-4">日期</th><th className="p-4 text-center">狀態</th><th className="p-4 text-right">系統應收</th><th className="p-4 text-right">實際清點</th><th className="p-4 text-right">短溢</th><th className="p-4">備註</th><th className="p-4 text-center">操作</th></tr></thead><tbody className="divide-y divide-slate-100">{cashRecords.map(rec => (<tr key={rec.id} className="hover:bg-slate-50 transition-colors"><td className="p-4 font-bold text-slate-700">{rec.date}</td><td className="p-4 text-center">{rec.isClosed ? <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-lg text-xs flex items-center justify-center gap-1 w-max mx-auto font-bold"><Lock size={12}/>關帳</span> : <span className="text-slate-400 text-xs font-medium border border-slate-200 px-3 py-1 rounded-lg bg-white">草稿</span>}</td><td className="p-4 text-right text-slate-600 font-medium">${(rec.expected || 0).toLocaleString()}</td><td className="p-4 text-right font-black text-slate-800">${(rec.actual || 0).toLocaleString()}</td><td className={`p-4 text-right font-black ${rec.diff === 0 ? 'text-green-600' : rec.diff > 0 ? 'text-blue-600' : 'text-red-600'}`}>{rec.diff > 0 ? '+' : ''}{(rec.diff || 0).toLocaleString()}</td><td className="p-4 text-slate-500 text-xs truncate max-w-[150px]">{rec.note || '-'}</td><td className="p-4 text-center"><button onClick={() => setTargetDate(rec.date)} className="text-blue-600 text-xs font-bold bg-blue-50 hover:bg-blue-100 border border-blue-100 px-4 py-2 rounded-lg transition-colors">查看</button></td></tr>))}</tbody></table></div></div>)}
+                    
+                    {/* 歷史對帳紀錄 */}
+                    {cashRecords.length > 0 && (
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="bg-slate-50 p-4 border-b border-slate-200"><h3 className="font-bold text-slate-700">歷史對帳紀錄</h3></div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm whitespace-nowrap min-w-[700px]">
+                                    <thead>
+                                        <tr className="border-b border-slate-200 text-slate-500">
+                                            <th className="p-4">日期</th>
+                                            <th className="p-4 text-center">狀態</th>
+                                            <th className="p-4 text-right">系統應收</th>
+                                            <th className="p-4 text-right">實際清點</th>
+                                            <th className="p-4 text-right">短溢</th>
+                                            <th className="p-4">備註</th>
+                                            <th className="p-4 text-center">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {cashRecords.map(rec => (
+                                            <tr key={rec.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="p-4 font-bold text-slate-700">{rec.date}</td>
+                                                <td className="p-4 text-center">{rec.isClosed ? <span className="bg-slate-200 text-slate-600 px-3 py-1 rounded-lg text-xs flex items-center justify-center gap-1 w-max mx-auto font-bold"><Lock size={12}/>關帳</span> : <span className="text-slate-400 text-xs font-medium border border-slate-200 px-3 py-1 rounded-lg bg-white">草稿</span>}</td>
+                                                <td className="p-4 text-right text-slate-600 font-medium">${(rec.expected || 0).toLocaleString()}</td>
+                                                <td className="p-4 text-right font-black text-slate-800">${(rec.actual || 0).toLocaleString()}</td>
+                                                <td className={`p-4 text-right font-black ${rec.diff === 0 ? 'text-green-600' : rec.diff > 0 ? 'text-blue-600' : 'text-red-600'}`}>{rec.diff > 0 ? '+' : ''}{(rec.diff || 0).toLocaleString()}</td>
+                                                <td className="p-4 text-slate-500 text-xs truncate max-w-[150px]">{rec.note || '-'}</td>
+                                                <td className="p-4 text-center">
+                                                    <div className="flex justify-center gap-2">
+                                                        <button onClick={() => setTargetDate(rec.date)} className="text-blue-600 text-xs font-bold bg-blue-50 hover:bg-blue-100 border border-blue-100 px-3 py-1.5 rounded-lg transition-colors">查看</button>
+                                                        <button onClick={() => handleDeleteRecord(rec.date)} className="text-red-500 text-xs font-bold bg-red-50 hover:bg-red-100 border border-red-100 p-1.5 rounded-lg transition-colors" title="刪除紀錄"><Trash2 size={16} /></button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -1041,7 +1125,7 @@
                         <h2 className="text-xl font-bold flex items-center gap-2"><CloudLightning size={20} className="text-blue-600"/> 雲端連線</h2>
                         <input type="text" value={tempUrl} onChange={e => setUrl(e.target.value)} className="w-full p-3 border border-slate-300 rounded-lg text-xs font-mono bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Google Apps Script 網址"/>
                         <button onClick={() => testConnection(tempUrl)} disabled={isLoading} className={`w-full p-3 rounded-lg font-bold text-white transition-colors flex items-center justify-center gap-2 ${isCloudEnabled ? 'bg-green-600 shadow-lg shadow-green-200' : 'bg-slate-800 hover:bg-slate-700'}`}>{isLoading ? <RefreshCw className="animate-spin" size={18}/> : null}{isCloudEnabled ? '連線成功 - 重新測試' : '測試並儲存連線'}</button>
-                        {isCloudEnabled && <button onClick={saveSettingsToCloud} disabled={isSavingSettings} className="w-full p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-200">{isSavingSettings ? <RefreshCw className="animate-spin" size={18}/> : <UploadCloud size={18}/>}手動備份所有資料到雲端</button>}
+                        {isCloudEnabled && <button onClick={() => saveSettingsToCloud(null, false)} disabled={isSavingSettings} className="w-full p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-200">{isSavingSettings ? <RefreshCw className="animate-spin" size={18}/> : <UploadCloud size={18}/>}手動備份所有資料到雲端</button>}
                     </div>
 
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -1297,10 +1381,28 @@
                 catch (e) { showAlert("連線失敗"); } finally { setIsLoading(false); }
             };
 
-            const saveSettingsToCloud = async () => {
+            const saveSettingsToCloud = async (customCashRecords = null, silent = false) => {
                 setIsSavingSettings(true);
-                try { await fetch(gasUrl, { method: 'POST', body: JSON.stringify({ action: 'save_settings', shopInfo, quickServices, staffList, customers, records, cashRecords }) }); showAlert("備份完成"); } 
-                catch (e) { showAlert("連線失敗"); } finally { setIsSavingSettings(false); }
+                try { 
+                    await fetch(gasUrl, { 
+                        method: 'POST', 
+                        body: JSON.stringify({ 
+                            action: 'save_settings', 
+                            shopInfo, 
+                            quickServices, 
+                            staffList, 
+                            customers, 
+                            records, 
+                            cashRecords: customCashRecords || cashRecords 
+                        }) 
+                    }); 
+                    if (!silent) showAlert("備份完成"); 
+                } catch (e) { 
+                    if (!silent) showAlert("連線失敗"); 
+                    throw e; 
+                } finally { 
+                    setIsSavingSettings(false); 
+                }
             };
 
             const handleAddService = () => { if (!newServiceName) return; setQuickServices(prev => [...prev, { id: Date.now().toString(), name: newServiceName, partsPrice: Number(newServiceParts || 0), laborHours: Number(newServiceLabor || 0), stock: Number(newServiceStock || 999) }]); setNewServiceName(''); setNewServiceParts(''); setNewServiceLabor(''); setNewServiceStock(''); };
@@ -1321,7 +1423,7 @@
                     {view === 'dashboard' && <Dashboard records={records} deleteRecord={deleteRecord} setSelectedRecord={setSelectedRecord} setShowReceiptModal={setShowReceiptModal} />}
                     {view === 'new-order' && <NewOrderForm draftOrder={draftOrder} setDraftOrder={setDraftOrder} customers={customers} records={records} quickServices={quickServices} staffList={staffList} shopInfo={shopInfo} handleCreateOrder={checkAndCreateOrderWrapper} setView={setView} showAlert={showAlert} showConfirm={showConfirm} isUploadingOrder={isUploadingOrder} />}
                     {view === 'workforce' && <WorkforceView records={records} staffList={staffList} shopInfo={shopInfo} />}
-                    {view === 'cashier' && <CashierView records={records} cashRecords={cashRecords} setCashRecords={setCashRecords} showAlert={showAlert} showConfirm={showConfirm} />}
+                    {view === 'cashier' && <CashierView records={records} cashRecords={cashRecords} setCashRecords={setCashRecords} showAlert={showAlert} showConfirm={showConfirm} saveSettingsToCloud={saveSettingsToCloud} isCloudEnabled={isCloudEnabled} isSavingSettings={isSavingSettings} />}
                     {view === 'reminders' && <RemindersView customers={customers} shopInfo={shopInfo} gasUrl={gasUrl} isCloudEnabled={isCloudEnabled} showAlert={showAlert} />}
                     {view === 'customers' && <CustomersView customers={customers} records={records} isLoading={isLoading} />}
                     {view === 'settings' && (
