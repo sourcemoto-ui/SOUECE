@@ -233,12 +233,12 @@
                 <button onClick={() => setView('cashier')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'cashier' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Wallet size={20} /><span>帳務與對帳</span></button>
                 <div className="border-t border-slate-700 my-2"></div>
                 <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
-            </nav>
-            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.8 修復對帳紀錄版</div>
-            </div>
-        );
+      </nav>
+      <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.9 同步防丟失版</div>
+    </div>
+);
 
-        const BottomNav = ({ view, setView }) => (
+const BottomNav = ({ view, setView }) => (
             <div className="md:hidden bg-white border-t border-slate-200 flex justify-around p-2 z-30 flex-shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
             <button onClick={() => setView('new-order')} className={`flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${view === 'new-order' ? 'text-blue-600' : 'text-slate-500'}`}><Plus size={24} /><span className="text-[10px] mt-1 font-medium">開單</span></button>
             <button onClick={() => setView('dashboard')} className={`flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${view === 'dashboard' ? 'text-blue-600' : 'text-slate-500'}`}><History size={24} /><span className="text-[10px] mt-1 font-medium">紀錄</span></button>
@@ -951,19 +951,28 @@
                     const updated = [newRecord, ...filtered].sort((a,b) => new Date(b.date) - new Date(a.date));
                     setCashRecords(updated);
                     
-                    if (closeAccount) {
-                        if (isCloudEnabled && saveSettingsToCloud) {
-                            try {
-                                await saveSettingsToCloud(updated, true);
+                    // ✨ 修復：不論是關帳還是「儲存草稿」，都強制同步上傳雲端
+                    if (isCloudEnabled && saveSettingsToCloud) {
+                        try {
+                            await saveSettingsToCloud(updated, true);
+                            if (closeAccount) {
                                 showAlert(`【${targetDate}】 帳務已確認關帳，鎖定修改！\n(已自動同步備份至雲端試算表)`);
-                            } catch (err) {
-                                showAlert(`【${targetDate}】 帳務已確認關帳，鎖定修改！\n(⚠️雲端同步失敗，請稍後至設定頁手動備份)`);
+                            } else {
+                                showAlert(`【${targetDate}】 對帳草稿已儲存\n(已自動同步備份至雲端試算表)`);
                             }
-                        } else {
-                            showAlert(`【${targetDate}】 帳務已確認關帳，鎖定修改！`);
+                        } catch (err) {
+                            if (closeAccount) {
+                                showAlert(`【${targetDate}】 帳務已確認關帳，鎖定修改！\n(⚠️雲端同步失敗，請稍後至設定頁手動備份)`);
+                            } else {
+                                showAlert(`【${targetDate}】 對帳草稿已儲存\n(⚠️雲端同步失敗，請稍後至設定頁手動備份)`);
+                            }
                         }
                     } else {
-                        showAlert(`【${targetDate}】 對帳草稿已儲存`);
+                        if (closeAccount) {
+                            showAlert(`【${targetDate}】 帳務已確認關帳，鎖定修改！`);
+                        } else {
+                            showAlert(`【${targetDate}】 對帳草稿已儲存`);
+                        }
                     }
                 };
                 if (closeAccount && diff !== 0) showConfirm(`目前帳務短溢為 ${diff > 0 ? '+'+diff : diff}，確定要以目前狀態強行關帳嗎？`, saveProcess); else saveProcess();
@@ -1370,7 +1379,34 @@
             const deleteRecord = (id) => {
                 const recordToDelete = records.find(r => r.id === id); if (!recordToDelete) return;
                 const localDateStr = getLocalDateString(new Date(recordToDelete.timestamp || recordToDelete.date)); const existingCashRec = cashRecords.find(c => c.date === localDateStr);
-                const execDelete = () => setRecords(prev => prev.filter(r => r.id !== id));
+                
+                const execDelete = async () => {
+                    const updatedRecords = records.filter(r => r.id !== id);
+                    setRecords(updatedRecords);
+                    // ✨ 修復：刪除維修工單後，強制同步雲端，防止重整後幽靈訂單跑回來
+                    if (isCloudEnabled) {
+                        try {
+                            await fetch(gasUrl, { 
+                                method: 'POST', 
+                                body: JSON.stringify({ 
+                                    action: 'save_settings', 
+                                    shopInfo, 
+                                    quickServices, 
+                                    staffList, 
+                                    customers, 
+                                    records: updatedRecords, 
+                                    cashRecords 
+                                }) 
+                            });
+                            showAlert('維修紀錄已刪除，並同步至雲端。');
+                        } catch (e) {
+                            showAlert('維修紀錄已刪除 (⚠️雲端同步失敗，請稍後手動備份)');
+                        }
+                    } else {
+                        showAlert('維修紀錄已刪除。');
+                    }
+                };
+                
                 if (existingCashRec && existingCashRec.isClosed) { showConfirm(`【警告】該工單所屬日期 (${localDateStr}) 帳務已關帳鎖定！\n刪除將影響系統應收現金，確定要強制刪除嗎？`, execDelete); } 
                 else { showConfirm('確定要刪除這筆維修紀錄嗎？', execDelete); }
             };
