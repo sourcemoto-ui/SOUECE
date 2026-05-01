@@ -5,20 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Source Moto Custom POS</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     
-    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Phosphor Icons (取代 Lucide Icons) -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    <!-- 預先載入 Tesseract OCR 模組，避免被平台安全政策阻擋 -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
     <style>
@@ -233,12 +228,12 @@
                 <button onClick={() => setView('cashier')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'cashier' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Wallet size={20} /><span>帳務與對帳</span></button>
                 <div className="border-t border-slate-700 my-2"></div>
                 <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
-      </nav>
-      <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.9 同步防丟失版</div>
-    </div>
-);
+            </nav>
+            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.10 雙向計價版</div>
+            </div>
+        );
 
-const BottomNav = ({ view, setView }) => (
+        const BottomNav = ({ view, setView }) => (
             <div className="md:hidden bg-white border-t border-slate-200 flex justify-around p-2 z-30 flex-shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom)]">
             <button onClick={() => setView('new-order')} className={`flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${view === 'new-order' ? 'text-blue-600' : 'text-slate-500'}`}><Plus size={24} /><span className="text-[10px] mt-1 font-medium">開單</span></button>
             <button onClick={() => setView('dashboard')} className={`flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${view === 'dashboard' ? 'text-blue-600' : 'text-slate-500'}`}><History size={24} /><span className="text-[10px] mt-1 font-medium">紀錄</span></button>
@@ -444,12 +439,42 @@ const BottomNav = ({ view, setView }) => (
                                     <input type="text" placeholder="項目名稱" value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} className="flex-1 p-2 border border-slate-300 rounded-lg bg-white font-medium min-w-0" required />
                                     <button type="button" onClick={() => removeItem(item.id)} className="p-2 text-red-400 hover:bg-red-50 rounded shrink-0 transition-colors"><Trash2 size={18} /></button>
                                 </div>
-                                <div className="flex flex-wrap gap-2 mb-2 pl-2 sm:pl-8">
-                                    <div className="flex-1 min-w-[100px]"><label className="text-[10px] text-slate-500 mb-1 block">零件費</label><input type="number" value={pPrice} onChange={(e) => updateItem(item.id, 'partsPrice', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-right bg-white" min="0"/></div>
-                                    <div className="w-20 sm:w-24"><label className="text-[10px] text-slate-500 mb-1 block">標準工時(h)</label><input type="number" value={item.laborHours} onChange={(e) => updateItem(item.id, 'laborHours', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-right bg-white" min="0" step="0.01"/></div>
-                                    <div className="w-16"><label className="text-[10px] text-slate-500 mb-1 block text-center">數量</label><input type="number" value={item.qty} onChange={(e) => updateItem(item.id, 'qty', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-center bg-white" min="1"/></div>
-                                    <div className="w-24 text-right flex flex-col justify-end pb-2 shrink-0"><div className="text-[10px] text-slate-400">工資 ${laborFee.toFixed(0)}</div><div className="font-bold text-blue-600">小計 ${((pPrice + laborFee) * Number(item.qty || 1)).toFixed(0)}</div></div>
+                                {/* 🔧 核心更新：雙向計價的表單 */}
+                                <div className="flex flex-wrap items-end gap-2 mb-2 pl-2 sm:pl-8">
+                                    <div className="flex-1 min-w-[90px]">
+                                        <label className="text-[10px] text-slate-500 mb-1 block">零件費 (手動/自動)</label>
+                                        <input type="number" value={pPrice} onChange={(e) => updateItem(item.id, 'partsPrice', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-right bg-slate-50 text-slate-700 font-medium focus:bg-white transition-colors outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
+                                    </div>
+                                    <div className="w-16 sm:w-20">
+                                        <label className="text-[10px] text-slate-500 mb-1 block">工時(h)</label>
+                                        <input type="number" value={item.laborHours} onChange={(e) => updateItem(item.id, 'laborHours', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-right bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" min="0" step="0.01"/>
+                                    </div>
+                                    <div className="w-14 sm:w-16">
+                                        <label className="text-[10px] text-slate-500 mb-1 block text-center">數量</label>
+                                        <input type="number" value={item.qty} onChange={(e) => updateItem(item.id, 'qty', e.target.value)} className="w-full p-2 border border-slate-300 rounded-lg text-center bg-white outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" min="1"/>
+                                    </div>
+                                    <div className="w-28 sm:w-32 flex flex-col justify-end shrink-0 relative top-[1px]">
+                                        <div className="text-[10px] text-slate-500 font-medium mb-1 text-right tracking-wide">工資 ${laborFee.toFixed(0)}</div>
+                                        <div className="flex items-center bg-blue-50 border border-blue-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all shadow-sm">
+                                            <span className="text-xs font-bold text-blue-600 pl-2">小計$</span>
+                                            <input 
+                                                type="number" 
+                                                value={Math.round((pPrice + laborFee) * Number(item.qty || 1))} 
+                                                onChange={(e) => {
+                                                    const valStr = e.target.value;
+                                                    const newSubtotal = valStr === '' ? 0 : Number(valStr);
+                                                    const currentLaborFee = Number(item.laborHours || 0) * hourlyRate;
+                                                    const currentQty = Number(item.qty || 1) || 1;
+                                                    const newPartsPrice = (newSubtotal / currentQty) - currentLaborFee;
+                                                    updateItem(item.id, 'partsPrice', newPartsPrice);
+                                                }}
+                                                onFocus={(e) => e.target.select()}
+                                                className="w-full p-2 bg-transparent text-right font-black text-blue-700 outline-none"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
+                                {/* --------------------- */}
                                 <div className="flex flex-wrap items-center gap-2 pl-2 sm:pl-8 border-t border-dashed border-slate-300 pt-3 mt-3">
                                     <span className="text-xs text-slate-500 flex items-center gap-1"><UserCheck size={12}/> 負責技師:</span>
                                     {staffList.map(staff => (
@@ -951,7 +976,6 @@ const BottomNav = ({ view, setView }) => (
                     const updated = [newRecord, ...filtered].sort((a,b) => new Date(b.date) - new Date(a.date));
                     setCashRecords(updated);
                     
-                    // ✨ 修復：不論是關帳還是「儲存草稿」，都強制同步上傳雲端
                     if (isCloudEnabled && saveSettingsToCloud) {
                         try {
                             await saveSettingsToCloud(updated, true);
@@ -1383,7 +1407,6 @@ const BottomNav = ({ view, setView }) => (
                 const execDelete = async () => {
                     const updatedRecords = records.filter(r => r.id !== id);
                     setRecords(updatedRecords);
-                    // ✨ 修復：刪除維修工單後，強制同步雲端，防止重整後幽靈訂單跑回來
                     if (isCloudEnabled) {
                         try {
                             await fetch(gasUrl, { 
