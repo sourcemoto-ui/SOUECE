@@ -10,10 +10,18 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     
+    <!-- Babel 編譯器與設定 -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        // 強制 Babel 使用經典的 React 編譯模式，避免產生瀏覽器無法解析的 import 模組語法
+        Babel.registerPreset('react-classic', {
+            presets: [
+                [Babel.availablePresets['react'], { runtime: 'classic' }]
+            ]
+        });
+    </script>
     
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
     <style>
@@ -33,7 +41,7 @@
 <body class="bg-slate-100 text-slate-900 overflow-hidden">
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-presets="env,react-classic">
         const { useState, useEffect, useRef, useMemo, Fragment } = React;
 
         // --- 圖示庫映射 (Phosphor Icons) ---
@@ -229,7 +237,7 @@
                 <div className="border-t border-slate-700 my-2"></div>
                 <button onClick={() => setView('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${view === 'settings' ? 'bg-blue-600' : 'hover:bg-slate-800'}`}><Settings size={20} /><span>系統設定</span></button>
             </nav>
-            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.10 雙向計價版</div>
+            <div className="p-4 text-xs text-slate-500 text-center border-t border-slate-800">v2.3.11 完整修復版</div>
             </div>
         );
 
@@ -439,7 +447,6 @@
                                     <input type="text" placeholder="項目名稱" value={item.name} onChange={(e) => updateItem(item.id, 'name', e.target.value)} className="flex-1 p-2 border border-slate-300 rounded-lg bg-white font-medium min-w-0" required />
                                     <button type="button" onClick={() => removeItem(item.id)} className="p-2 text-red-400 hover:bg-red-50 rounded shrink-0 transition-colors"><Trash2 size={18} /></button>
                                 </div>
-                                {/* 🔧 核心更新：雙向計價的表單 */}
                                 <div className="flex flex-wrap items-end gap-2 mb-2 pl-2 sm:pl-8">
                                     <div className="flex-1 min-w-[90px]">
                                         <label className="text-[10px] text-slate-500 mb-1 block">零件費 (手動/自動)</label>
@@ -474,7 +481,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                {/* --------------------- */}
                                 <div className="flex flex-wrap items-center gap-2 pl-2 sm:pl-8 border-t border-dashed border-slate-300 pt-3 mt-3">
                                     <span className="text-xs text-slate-500 flex items-center gap-1"><UserCheck size={12}/> 負責技師:</span>
                                     {staffList.map(staff => (
@@ -640,7 +646,12 @@
                                                     <div className="space-y-1.5">{record.items?.map((i, idx) => (<div key={idx} className="text-sm text-slate-700 flex gap-2 items-start"><span className="text-blue-300 mt-0.5">•</span><span className="leading-snug">{i.name} <span className="text-xs text-slate-400 ml-1 font-medium bg-slate-100 px-1 rounded">x{i.qty}</span></span></div>))}</div>
                                                     <div className="flex flex-wrap items-center gap-2 mt-3">
                                                         {record.notes && <div className="text-xs text-orange-700 bg-orange-50 px-2 py-1.5 rounded inline-block whitespace-pre-wrap border border-orange-100">備註: {record.notes}</div>}
-                                                        {(record.photo1 || record.photo2) && <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1.5 rounded flex items-center gap-1 border border-blue-100"><Camera size={14} /> 附照片</div>}
+                                                        {(record.photo1 || record.photo2) && (
+                                                            <div className="flex flex-wrap gap-2 mt-1">
+                                                                {record.photo1 && <a href={record.photo1} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 px-2 py-1.5 rounded flex items-center gap-1 border border-blue-200 transition-colors"><Camera size={14} /> 查看照片 1</a>}
+                                                                {record.photo2 && <a href={record.photo2} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 px-2 py-1.5 rounded flex items-center gap-1 border border-blue-200 transition-colors"><Camera size={14} /> 查看照片 2</a>}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="p-4 align-top text-right whitespace-nowrap">
@@ -695,13 +706,38 @@
 
             const { displayCustomers } = useMemo(() => {
                 let list = [];
-                if (tab === 'top5') { list = customers.filter(c => c && c.lastVisit).sort((a, b) => new Date(a.lastVisit) - new Date(b.lastVisit)).slice(0, 5); } 
-                else {
-                    const daysThreshold = (tab === 'major' ? 18 : 6) * 30;
-                    list = customers.filter(c => {
-                        if (!c || !c.lastVisit) return false;
-                        return Math.abs(new Date() - new Date(c.lastVisit)) / (1000 * 60 * 60 * 24) >= daysThreshold;
-                    }).sort((a, b) => new Date(a.lastVisit) - new Date(b.lastVisit));
+                
+                // 安全的日期解析函式
+                const getSafeTime = (dateVal) => {
+                    if (!dateVal) return 0;
+                    const d = new Date(dateVal);
+                    if (!isNaN(d.getTime())) return d.getTime();
+                    if (typeof dateVal === 'string') {
+                        const d2 = new Date(dateVal.replace(/\//g, '-'));
+                        if (!isNaN(d2.getTime())) return d2.getTime();
+                    }
+                    return 0;
+                };
+
+                // 過濾出有紀錄的客戶
+                const validCustomers = customers.filter(c => c && getSafeTime(c.lastVisit) > 0);
+
+                if (tab === 'all') {
+                    // 全部客戶，由新到舊排序
+                    list = [...validCustomers].sort((a, b) => getSafeTime(b.lastVisit) - getSafeTime(a.lastVisit));
+                } else if (tab === 'top5') {
+                    // 最久未回店 (Top 10)，由舊到新排序
+                    list = [...validCustomers].sort((a, b) => getSafeTime(a.lastVisit) - getSafeTime(b.lastVisit)).slice(0, 10); 
+                } else {
+                    // 根據保養時間篩選
+                    const months = tab === 'major' ? 18 : 6;
+                    const daysThreshold = months * 30;
+                    const now = new Date().getTime();
+                    list = validCustomers.filter(c => {
+                        const lastTime = getSafeTime(c.lastVisit);
+                        const diffDays = (now - lastTime) / (1000 * 60 * 60 * 24);
+                        return diffDays >= daysThreshold;
+                    }).sort((a, b) => getSafeTime(a.lastVisit) - getSafeTime(b.lastVisit));
                 }
                 return { displayCustomers: list };
             }, [customers, tab]);
@@ -737,29 +773,46 @@
                 <div className="space-y-6 max-w-5xl mx-auto">
                     <div className="bg-gradient-to-r from-orange-500 to-red-500 p-6 rounded-xl text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <h2 className="text-xl font-bold flex items-center gap-2"><Bell size={24} /> 保養提醒名單</h2>
-                        <div className="flex bg-white/20 p-1.5 rounded-lg">
-                            <button onClick={() => setTab('oil')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'oil' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>機油</button>
-                            <button onClick={() => setTab('major')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'major' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>大保養</button>
-                            <button onClick={() => setTab('top5')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'top5' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>前 5 名</button>
+                        <div className="flex bg-white/20 p-1.5 rounded-lg overflow-x-auto scrollbar-hide w-full sm:w-auto">
+                            <button onClick={() => setTab('oil')} className={`whitespace-nowrap px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'oil' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>半年機油</button>
+                            <button onClick={() => setTab('major')} className={`whitespace-nowrap px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'major' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>一年半大保養</button>
+                            <button onClick={() => setTab('top5')} className={`whitespace-nowrap px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'top5' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>最久未回店</button>
+                            <button onClick={() => setTab('all')} className={`whitespace-nowrap px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${tab === 'all' ? 'bg-white text-orange-600 shadow-sm' : 'text-white hover:bg-white/10'}`}>全部客戶</button>
                         </div>
                     </div>
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm min-w-[500px]">
-                                <thead><tr className="bg-slate-50 border-b text-slate-600"><th className="p-4 font-bold">車牌</th><th className="p-4 font-bold">姓名</th><th className="p-4 font-bold text-center">通知操作</th></tr></thead>
+                            <table className="w-full text-left text-sm min-w-[600px]">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b text-slate-600">
+                                        <th className="p-4 font-bold">車牌</th>
+                                        <th className="p-4 font-bold">姓名</th>
+                                        <th className="p-4 font-bold">上次來店</th>
+                                        <th className="p-4 font-bold text-center">通知操作</th>
+                                    </tr>
+                                </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {displayCustomers.map(c => (
                                         <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                                            <td className="p-4 font-bold text-slate-800 text-base">{safeRender(c.plate)}</td><td className="p-4 text-slate-700">{safeRender(c.name)}</td>
+                                            <td className="p-4 font-bold text-slate-800 text-base">{safeRender(c.plate)}</td>
+                                            <td className="p-4 text-slate-700">{safeRender(c.name)}</td>
+                                            <td className="p-4 text-slate-500 font-medium">{formatDate(c.lastVisit)}</td>
                                             <td className="p-4">
                                                 <div className="flex gap-2 justify-center">
-                                                    <button onClick={() => handleActionClick(c, 'sms')} className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 px-4 py-2 rounded-lg text-xs font-bold transition-colors">LINE / 複製</button>
-                                                    <button onClick={() => handleActionClick(c, 'email')} disabled={sendingId === c.id} className="bg-green-50 text-green-700 border border-green-100 hover:bg-green-100 px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1">{sendingId === c.id && <RefreshCw size={12} className="animate-spin"/>} 電子郵件</button>
+                                                    <button onClick={() => handleActionClick(c, 'sms')} className="bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">LINE / 複製</button>
+                                                    <button onClick={() => handleActionClick(c, 'email')} disabled={sendingId === c.id} className="bg-green-50 text-green-700 border border-green-100 hover:bg-green-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 flex items-center gap-1">{sendingId === c.id && <RefreshCw size={12} className="animate-spin"/>} 電子郵件</button>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))}
-                                    {displayCustomers.length === 0 && <tr><td colSpan="3" className="p-10 text-center text-slate-400">目前沒有符合條件的客戶</td></tr>}
+                                    {displayCustomers.length === 0 && (
+                                        <tr>
+                                            <td colSpan="4" className="p-10 text-center text-slate-500">
+                                                目前沒有符合條件的客戶。<br/>
+                                                <span className="text-xs text-slate-400 mt-2 block">（注意：機油提醒會過濾出超過 6 個月未回店的客戶）</span>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -777,7 +830,10 @@
             return (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white w-full max-w-2xl rounded-xl flex flex-col max-h-[90vh] overflow-hidden shadow-2xl">
-                        <div className="bg-slate-900 text-white p-4 flex justify-between items-center"><h3 className="font-bold flex items-center gap-2"><History size={18} /> {customer.plate} 維修歷史</h3><button onClick={onClose} className="hover:bg-slate-700 p-1 rounded transition-colors"><X size={20}/></button></div>
+                        <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+                            <h3 className="font-bold flex items-center gap-2"><History size={18} /> {customer.plate} 維修歷史</h3>
+                            <button onClick={onClose} className="hover:bg-slate-700 p-1 rounded transition-colors"><X size={20}/></button>
+                        </div>
                         <div className="overflow-y-auto flex-1 bg-slate-50 p-4">
                             {history.length > 0 ? (
                                 <div className="space-y-3">
@@ -785,11 +841,18 @@
                                         <div key={r.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2">
                                             <div className="flex justify-between items-center border-b border-dashed pb-2"><span className="font-bold text-slate-700">{formatDate(r.date)}</span><span className="font-black text-blue-600">${Number(r.total || 0).toLocaleString()}</span></div>
                                             <div className="text-sm text-slate-600 mt-1">{r.items?.map(i => i.name).join(', ')}</div>
-                                            {(r.photo1 || r.photo2) && <div className="text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded inline-flex items-center gap-1 w-max mt-1"><Camera size={14} /> 附照片</div>}
+                                            {(r.photo1 || r.photo2) && (
+                                                <div className="flex gap-2 mt-2">
+                                                    {r.photo1 && <a href={r.photo1} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded inline-flex items-center gap-1 border border-blue-200 transition-colors"><Camera size={14} /> 照片 1</a>}
+                                                    {r.photo2 && <a href={r.photo2} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded inline-flex items-center gap-1 border border-blue-200 transition-colors"><Camera size={14} /> 照片 2</a>}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
-                            ) : (<div className="text-center py-10 text-slate-400">尚無維修紀錄</div>)}
+                            ) : (
+                                <div className="text-center py-10 text-slate-400">尚無維修紀錄</div>
+                            )}
                         </div>
                     </div>
                 </div>
